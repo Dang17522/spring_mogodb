@@ -1,5 +1,10 @@
 package com.zalo.Spring_Zalo.ServiceImpl;
 
+import com.zalo.Spring_Zalo.Entities.Roles;
+import com.zalo.Spring_Zalo.Repo.RolesMongoRepo;
+import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
+import com.zalo.Spring_Zalo.request.UserRequestImport;
+import com.zalo.Spring_Zalo.utils.ExcelHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +22,11 @@ import com.zalo.Spring_Zalo.Response.LoginResponse;
 import com.zalo.Spring_Zalo.Response.UserInfoResponse;
 import com.zalo.Spring_Zalo.Service.UserService;
 import com.zalo.Spring_Zalo.request.UserRequestLogin;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -35,6 +45,15 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
     private final JWTGenerator jwtGenerator;
+
+    @Autowired
+    private ExcelHelper excelHelper;
+
+    @Autowired
+    private SequenceGeneratorService sequenceGeneratorService;
+
+    @Autowired
+    private RolesMongoRepo roleRepo;
 
     @Override
     public ResponseEntity<?> AuthorizeUser(UserRequestLogin user) {
@@ -69,5 +88,54 @@ public class UserServiceImpl implements UserService {
     public User authenticateUser(String username, String password) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'authenticateUser'");
+    }
+
+    @Override
+    public boolean importData(MultipartFile file) {
+        try {
+            List<UserRequestImport> list = ExcelHelper.excelToTutorials(file.getInputStream());
+            if (checkData(list)) {
+                for (UserRequestImport user : list) {
+                    Roles role = Roles.builder()
+                            .id(sequenceGeneratorService.generateSequence(Roles.SEQUENCE_NAME))
+                            .name(user.getRole())
+                            .build();
+
+                    User u = User.builder()
+                            .id(sequenceGeneratorService.generateSequence(User.SEQUENCE_NAME))
+                            .username(user.getUsername())
+                            .fullname(user.getFullname())
+                            .email(user.getEmail())
+                            .password(PasswordUtils.encryptPassword(user.getPassword()))
+                            .role(role)
+                            .createAt(LocalDateTime.now())
+                            .avatar("https://i.pinimg.com/736x/0c/ce/24/0cce244c8456e9632233b1921450f5af.jpg")
+                            .status(1)
+                            .build();
+
+                    userRepo.save(u);
+                    roleRepo.save(role);
+
+                }
+            }else{
+                return false;
+            }
+            return true;
+        } catch (IOException e) {
+            throw new RuntimeException("fail to store excel data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public boolean checkData(List<UserRequestImport> list) {
+        for (UserRequestImport user : list) {
+            if (userRepo.findByUserName(user.getUsername()) != null) {
+                return false;
+            }
+            if(userRepo.findByEmail(user.getEmail()) != null) {
+                return false;
+            }
+        }
+        return true;
     }
 }

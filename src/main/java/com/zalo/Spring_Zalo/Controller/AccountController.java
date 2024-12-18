@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.zalo.Spring_Zalo.JWT.JWTAuthenticationFilter;
 import com.zalo.Spring_Zalo.Response.ApiDataResponse;
+import com.zalo.Spring_Zalo.Service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,9 @@ public class AccountController {
 
     @Autowired
     private JWTAuthenticationFilter jwtAuthenticationFilter;
+
+    @Autowired
+    private UserService userService;
 
     // @GetMapping("/")
     // public ResponseEntity<List<User>> getListAccount() {
@@ -106,5 +110,15 @@ public class AccountController {
      UserDto dto = mapToDto(u);
      ApiDataResponse apiResponse = new ApiDataResponse("Get user success !!!", true, 200, dto);
      return ResponseEntity.ok(apiResponse);
+    }
+
+    @PostMapping("/importData")
+    public ResponseEntity<?> importData(@RequestPart("file") MultipartFile file) {
+        boolean importData = userService.importData(file);
+        if(!importData){
+            return ResponseEntity.ok(new ApiDataResponse("Import data failed duplicate username or email !!!", false, 400, null));
+        }
+        ApiDataResponse apiResponse = new ApiDataResponse("Import data success !!!", true, 200,null);
+        return ResponseEntity.ok(apiResponse);
     }
 }
