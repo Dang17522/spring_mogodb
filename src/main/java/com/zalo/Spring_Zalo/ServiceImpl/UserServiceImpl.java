@@ -24,6 +24,7 @@ import com.zalo.Spring_Zalo.Service.UserService;
 import com.zalo.Spring_Zalo.request.UserRequestLogin;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -137,5 +138,12 @@ public class UserServiceImpl implements UserService {
             }
         }
         return true;
+    }
+
+    @Override
+    public ByteArrayInputStream getExportDataExcel() throws IOException {
+        List<User> list = userRepo.findAll();
+        ByteArrayInputStream byteArrayInputStream = excelHelper.dataToExcelByCustomer(list);
+        return byteArrayInputStream;
     }
 }

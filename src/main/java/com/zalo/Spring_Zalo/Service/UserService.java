@@ -7,6 +7,8 @@ import com.zalo.Spring_Zalo.Entities.User;
 import com.zalo.Spring_Zalo.request.UserRequestLogin;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
@@ -17,4 +19,6 @@ public interface UserService {
     boolean importData(MultipartFile file);
 
     boolean checkData(List<UserRequestImport> list);
+
+    ByteArrayInputStream getExportDataExcel() throws IOException;
 }

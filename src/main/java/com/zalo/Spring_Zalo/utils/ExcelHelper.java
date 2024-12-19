@@ -3,10 +3,9 @@ package com.zalo.Spring_Zalo.utils;
 import com.zalo.Spring_Zalo.Entities.User;
 import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
 import com.zalo.Spring_Zalo.request.UserRequestImport;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -116,5 +117,37 @@ public class ExcelHelper {
         } catch (IOException e) {
             throw new RuntimeException("fail to parse Excel file: " + e.getMessage());
         }
+    }
+
+    public static ByteArrayInputStream dataToExcelByCustomer(List<User> list) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            Sheet sheet = workbook.createSheet(SHEET);
+
+            Row row = sheet.createRow(0);
+            for (int i=0;i<HEADERs.length;i++){
+                Cell cell = row.createCell(i);
+                cell.setCellValue(HEADERs[i]);
+            }
+            int i = 0;
+            for (User objects : list){
+                i++;
+                Row dataRow = sheet.createRow(i);
+                dataRow.createCell(0).setCellValue((String) objects.getUsername());
+                dataRow.createCell(1).setCellValue((String) objects.getFullname());
+                dataRow.createCell(2).setCellValue((String) objects.getEmail());
+                dataRow.createCell(3).setCellValue((String) "***");
+                dataRow.createCell(4).setCellValue((String) objects.getRole().getName());
+            }
+            workbook.write(out);
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }finally {
+            workbook.close();
+            out.close();
+        }
+        return new ByteArrayInputStream(out.toByteArray());
     }
 }
