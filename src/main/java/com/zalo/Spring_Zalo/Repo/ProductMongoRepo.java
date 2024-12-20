@@ -16,8 +16,8 @@ public interface ProductMongoRepo extends MongoRepository<Product, Integer> {
     Page<Product> findAllbyCompanyId(Integer companyId, Pageable pageable);
 
 //    @Query("select p from Product p  order by p.createAt desc ")
-    @Query(value = "{}", sort = "{ 'createAt': -1 }")
-    Page<Product> findAllOrDerBOrderByCreateAt( Pageable pageable);
+    @Query(value = "{ name: { $regex: ?0, $options: 'i' } }")
+    Page<Product> findAllByKey(String key, Pageable pageable);
 //    @Query(value = "SELECT * FROM products WHERE company_id =:companyId AND id NOT IN (SELECT product_id FROM product_events WHERE company_id =:companyId AND event_id =:eventId)", nativeQuery = true)
     @Query("{ 'companyId': ?0, 'id': { $nin: ?1 } }")
     List<Product> findAllByNotInProductEvents(Integer companyId, Integer eventId);

@@ -1,6 +1,5 @@
 package com.zalo.Spring_Zalo.Response;
 
-import com.zalo.Spring_Zalo.Entities.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

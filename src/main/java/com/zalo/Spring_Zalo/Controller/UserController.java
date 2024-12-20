@@ -1,9 +1,9 @@
 package com.zalo.Spring_Zalo.Controller;
 
-import com.zalo.Spring_Zalo.DTO.UserDto;
-import com.zalo.Spring_Zalo.Entities.User;
-import com.zalo.Spring_Zalo.Repo.UserMongoRepo;
-import com.zalo.Spring_Zalo.Service.CloudinaryService;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,11 +18,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Date;
+import com.zalo.Spring_Zalo.DTO.UserDto;
+import com.zalo.Spring_Zalo.Entities.User;
+import com.zalo.Spring_Zalo.Repo.UserMongoRepo;
+import com.zalo.Spring_Zalo.Service.CloudinaryService;
 
 @RestController
     @RequestMapping("/api/users")

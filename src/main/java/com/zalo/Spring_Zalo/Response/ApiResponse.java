@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApiResponse {
-    public ApiResponse(String string, boolean b, int i, User user) {
+    public ApiResponse(String string, boolean b, int i, Object data) {
         //TODO Auto-generated constructor stub
     }
     public ApiResponse(String string, boolean b, int i, User user, String refreshToken, String accessToken) {

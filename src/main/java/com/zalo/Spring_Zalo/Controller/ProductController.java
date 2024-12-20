@@ -10,14 +10,17 @@ import java.util.ResourceBundle;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.zalo.Spring_Zalo.Entities.Category;
+import com.zalo.Spring_Zalo.Repo.CategoryMongoRepo;
+import com.zalo.Spring_Zalo.Response.ApiDataResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,7 +41,7 @@ import com.zalo.Spring_Zalo.Service.CloudinaryService;
 import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
 
 @RestController
-@RequestMapping("/api/products")
+    @RequestMapping("/api/products")
 public class ProductController {
     @Autowired
     private ProductMongoRepo productRepo;
@@ -49,54 +52,36 @@ public class ProductController {
     @Autowired
     private SequenceGeneratorService sequenceGeneratorService;
 
-    @GetMapping("/")
-    public ResponseEntity<?> getAllProducts(@RequestParam(defaultValue = "5") int pageSize,
-            @RequestParam(defaultValue = "1") int pageNumber) {
-        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize);
-        Page<Product> productsPage = productRepo.findAllOrDerBOrderByCreateAt(pageable);
+    @Autowired
+    private CategoryMongoRepo categoryRepo;
+
+    @GetMapping("")
+    public ResponseEntity<?> getAllProducts(@RequestParam(value = "key",required = false, defaultValue = "" ) String key,
+                                            @RequestParam(value = "sort",required = false, defaultValue ="descend") String sort,
+                                            @RequestParam(value = "pageSize" ,defaultValue = "5") int pageSize,
+                                            @RequestParam(value = "pageNumber" ,defaultValue = "1") int pageNumber) {
+        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, sort.equals("ascend") ? Sort.by("createAt").ascending() : Sort.by("createAt").descending());
+        Page<Product> productsPage = productRepo.findAllByKey(key,pageable);
         Page<ProductDto> map = productsPage.map(this::mapToProductDto);
-        return new ResponseEntity<>(map, HttpStatus.OK);
-    }
-
-    @GetMapping("/company/{companyId}/event/{eventId}")
-    public ResponseEntity<?> getAllProductsNotInCompanyAndEvent(@PathVariable("companyId") Integer companyId,
-            @PathVariable("eventId") Integer eventId) {
-        List<Product> productsPage = productRepo.findAllByNotInProductEvents(companyId, eventId);
-        List<ProductDto> map = productsPage.stream().map(this::mapToProductDto).collect(Collectors.toList());
-        Map<String, Object> response = new HashMap<>();
-        response.put("content", map);
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    @GetMapping("/search/company/{companyId}/event/{eventId}")
-    public ResponseEntity<?> searchProductsNotInCompanyAndEvent(@RequestParam("key") String key,
-            @PathVariable("companyId") Integer companyId, @PathVariable("eventId") Integer eventId) {
-        List<Product> productsPage = productRepo.searchByNotInProductEvents(key, companyId, eventId);
-        List<ProductDto> map = productsPage.stream().map(this::mapToProductDto).collect(Collectors.toList());
-        Map<String, Object> response = new HashMap<>();
-        response.put("content", map);
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<?> getAllProductsByCompany(@RequestParam(defaultValue = "5") int pageSize,
-            @RequestParam(defaultValue = "1") int pageNumber,
-            @PathVariable Integer companyId) {
-        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize);
-        Page<Product> productsPage = productRepo.findAllbyCompanyId(companyId, pageable);
-        Page<ProductDto> map = productsPage.map(this::mapToProductDto);
+        ApiDataResponse apiResponse = new ApiDataResponse("Get all products success !!!", true, 200, map);
         return new ResponseEntity<>(map, HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Integer id, @RequestPart("name") String name,
-            @RequestPart("status") String status,
-            @RequestPart("point") String point,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        Product product = productRepo.findById(id)
-                .orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
+    public ResponseEntity<Product> updateProduct(@PathVariable Integer id,
+                                                 @RequestPart("name") String name,
+                                                 @RequestPart("status") String status,
+                                                 @RequestPart("quantity") String quantity,
+                                                 @RequestPart("category") String categoryId,
+                                                 @RequestPart(value = "file", required = false) MultipartFile file) {
+        Product product = productRepo.findById(id).orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
+        if(product.getCategory().getId() != Integer.parseInt(categoryId)) {
+            Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
+            product.setCategory(category);
+        }
         product.setName(name);
         product.setStatus(Integer.parseInt(status));
+        product.setQuantity(Integer.parseInt(quantity));
         product.setUpdatedAt(LocalDateTime.now());
         if (file != null) {
             cloudinaryService.deleteImageUpload(product.getPublicId());
@@ -106,9 +91,9 @@ public class ProductController {
             product.setPublicId(String.valueOf(data.get("public_id")));
 
         }
-        Product savedProduct = productRepo.save(product); // Cập nhật thông tin của sản phẩm
 
-        return ResponseEntity.ok(savedProduct); // Trả về sản phẩm đã được cập nhật
+        Product savedProduct = productRepo.save(product);
+        return ResponseEntity.ok(savedProduct);
     }
 
     @PutMapping("/status/{id}")
@@ -123,12 +108,13 @@ public class ProductController {
 
     @PostMapping(value = "/")
     public ResponseEntity<Product> createProduct(@RequestPart("name") String name,
-            @RequestPart("status") String status,
-            @RequestPart("point") String point,
-            @RequestPart("companyId") String companyId,
-            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+                                                @RequestPart("status") String status,
+                                                @RequestPart("quantity") String quantity,
+                                                @RequestPart("category") String categoryId,
+                                                @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
         Product product = new Product();
         // String fileName = saveFile(file);
+        Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
         if (file != null) {
             Map data = cloudinaryService.upload(file);
             product.setImage(String.valueOf(data.get("secure_url")));
@@ -136,8 +122,11 @@ public class ProductController {
         }
         product.setId(sequenceGeneratorService.generateSequence(Product.SEQUENCE_NAME));
         product.setName(name);
+        product.setQuantity(Integer.parseInt(quantity));
+        product.setVote(0);
         product.setStatus(Integer.parseInt(status));
         product.setCreateAt(LocalDateTime.now());
+        product.setCategory(category);
 
         Product pro = productRepo.save(product);
         return new ResponseEntity<>(pro, HttpStatus.CREATED);
@@ -179,9 +168,12 @@ public class ProductController {
         productDto.setId(product.getId());
         productDto.setName(product.getName());
         productDto.setStatus(product.getStatus());
-        productDto.setImage(pathImage + product.getImage());
+        productDto.setImage( product.getImage());
         productDto.setPublicId(product.getPublicId());
         productDto.setCreateAt(product.getCreateAt());
+        productDto.setVote(product.getVote());
+        productDto.setQuantity(product.getQuantity());
+        productDto.setCategory(product.getCategory().getId());
         return productDto;
     }
 

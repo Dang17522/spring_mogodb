@@ -1,19 +1,21 @@
 package com.zalo.Spring_Zalo.DTO;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 @Getter
 @Setter
-public class ProductDto {
-    private int id;
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CategoryDto {
+    private Integer id;
     private String name;
     private int status;
     private String image;
-    private int quantity;
-    private int vote;
     private LocalDateTime createAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
     private String publicId;
-    private Integer category;
+
 }

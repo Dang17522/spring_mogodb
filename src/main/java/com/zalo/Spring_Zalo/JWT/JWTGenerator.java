@@ -2,21 +2,24 @@ package com.zalo.Spring_Zalo.JWT;
 import java.io.IOException;
 import java.util.Date;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zalo.Spring_Zalo.Entities.RefeshToken;
-import com.zalo.Spring_Zalo.Repo.RefeshTokenMongoRepo;
-import com.zalo.Spring_Zalo.Response.ApiResponse;
-import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
-import io.jsonwebtoken.*;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zalo.Spring_Zalo.Entities.RefeshToken;
 import com.zalo.Spring_Zalo.Entities.User;
+import com.zalo.Spring_Zalo.Repo.RefeshTokenMongoRepo;
+import com.zalo.Spring_Zalo.Response.ApiResponse;
+import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JWTGenerator {
