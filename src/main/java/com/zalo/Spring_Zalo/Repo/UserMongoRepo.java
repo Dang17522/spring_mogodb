@@ -34,10 +34,10 @@ public interface UserMongoRepo extends MongoRepository<User, Integer> {
             "}")
     Page<User> findByUserNameOrEmail(String key, LocalDateTime startTime, LocalDateTime endTime, Pageable pageable);
 
-    @Query("SELECT COUNT(u) FROM User u JOIN u.company c WHERE c.name = :companyName")
-    long countByBusinessName( String companyName);
+//    @Query("SELECT COUNT(u) FROM User u JOIN u.company c WHERE c.name = :companyName")
+//    long countByBusinessName( String companyName);
 
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role")
-    Page<User> findAllWithRole(Pageable pageable);
+//    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role")
+//    Page<User> findAllWithRole(Pageable pageable);
 
 }

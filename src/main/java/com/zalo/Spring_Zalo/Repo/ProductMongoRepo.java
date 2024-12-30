@@ -25,4 +25,20 @@ public interface ProductMongoRepo extends MongoRepository<Product, Integer> {
 //    @Query(value = "SELECT * FROM products WHERE concat(product_name) LIKE %:key% AND company_id =:companyId AND id NOT IN (SELECT product_id FROM product_events WHERE company_id =:companyId AND event_id =:eventId)", nativeQuery = true)
     @Query("{ 'productName': { $regex: ?0, $options: 'i' }, 'companyId': ?1, 'id': { $nin: ?2 } }")
     List<Product> searchByNotInProductEvents(String key,Integer companyId, Integer eventId);
+
+    @Query(value = "{ $and: [ " +
+            "{'name': { $regex: ?0, $options: 'i' }}, " +
+            "{ 'category.$id': { $in: ?1 } }, " +
+            "{ 'price': { $gte: ?2, $lte: ?3 } }, " +
+            "{ 'vote': { $gte: ?4 } } " +
+            "] }")
+    Page<Product> findByFilters(String keyword
+            , List<Integer> category
+            , int minPrice
+            , int maxPrice
+            , int minRating
+            , Pageable pageable);
+
+    @Query(value = "{ 'category.$id': { $in: ?0 } }")
+    List<Product> testFilter(List<Integer> category);
 }

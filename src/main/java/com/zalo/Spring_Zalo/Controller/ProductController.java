@@ -3,16 +3,14 @@ package com.zalo.Spring_Zalo.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.zalo.Spring_Zalo.Entities.Category;
 import com.zalo.Spring_Zalo.Repo.CategoryMongoRepo;
 import com.zalo.Spring_Zalo.Response.ApiDataResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,7 +39,7 @@ import com.zalo.Spring_Zalo.Service.CloudinaryService;
 import com.zalo.Spring_Zalo.Service.SequenceGeneratorService;
 
 @RestController
-    @RequestMapping("/api/products")
+@RequestMapping("/api/products")
 public class ProductController {
     @Autowired
     private ProductMongoRepo productRepo;
@@ -55,16 +53,64 @@ public class ProductController {
     @Autowired
     private CategoryMongoRepo categoryRepo;
 
+    Logger logger = LoggerFactory.getLogger(ProductController.class);
+
     @GetMapping("")
-    public ResponseEntity<?> getAllProducts(@RequestParam(value = "key",required = false, defaultValue = "" ) String key,
-                                            @RequestParam(value = "sort",required = false, defaultValue ="descend") String sort,
-                                            @RequestParam(value = "pageSize" ,defaultValue = "5") int pageSize,
-                                            @RequestParam(value = "pageNumber" ,defaultValue = "1") int pageNumber) {
+    public ResponseEntity<?> getAllProducts(@RequestParam(value = "key", required = false, defaultValue = "") String key,
+                                            @RequestParam(value = "sort", required = false, defaultValue = "descend") String sort,
+                                            @RequestParam(value = "pageSize", defaultValue = "5") int pageSize,
+                                            @RequestParam(value = "pageNumber", defaultValue = "1") int pageNumber) {
         Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, sort.equals("ascend") ? Sort.by("createAt").ascending() : Sort.by("createAt").descending());
-        Page<Product> productsPage = productRepo.findAllByKey(key,pageable);
+        Page<Product> productsPage = productRepo.findAllByKey(key, pageable);
         Page<ProductDto> map = productsPage.map(this::mapToProductDto);
         ApiDataResponse apiResponse = new ApiDataResponse("Get all products success !!!", true, 200, map);
         return new ResponseEntity<>(map, HttpStatus.OK);
+    }
+
+    @GetMapping("/home")
+    public ResponseEntity<?> getAllProductsInHome(@RequestParam(value = "key", required = false, defaultValue = "") String key,
+                                            @RequestParam(value = "sort", required = false, defaultValue = "createAt") String sort,
+                                            @RequestParam(value = "category", required = false, defaultValue = "1,2,3") String category,
+                                            @RequestParam(value = "price", required = false, defaultValue = "20,500") String price,
+                                            @RequestParam(value = "rate", required = false, defaultValue = "3") String rate,
+                                            @RequestParam(value = "pageSize", defaultValue = "5") int pageSize,
+                                            @RequestParam(value = "pageNumber", defaultValue = "1") int pageNumber) {
+        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, Sort.by(sort).ascending());
+        int minPrice = Integer.parseInt(price.split(",")[0]);
+        int maxPrice = Integer.parseInt(price.split(",")[1]);
+        logger.info("key: " + key + " sort: " + sort + " category: " + category + " minPrice: " + minPrice + " maxPrice: " + maxPrice + " rate: " + rate);
+        List<Integer> categoryList = Arrays.stream(category.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Integer::parseInt)
+                .collect(Collectors.toList());
+        logger.info("categoryList: " + categoryList.toString());
+        Page<Product> productsPage = productRepo.findByFilters(key
+                , categoryList
+                , minPrice
+                , maxPrice
+                , Integer.parseInt(rate)
+                , pageable);
+        Page<ProductDto> map = productsPage.map(this::mapToProductDto);
+        ApiDataResponse apiResponse = new ApiDataResponse("Get all products success !!!", true, 200, map);
+        return new ResponseEntity<>(map, HttpStatus.OK);
+    }
+
+    @GetMapping("/testFilter")
+    public ResponseEntity<?> test(@RequestParam(value = "category", required = false) String category) {
+        List<Integer> categoryList = Arrays.stream(category.split(","))
+                .map(String::trim)          // Remove whitespace
+                .filter(s -> !s.isEmpty())  // Skip empty strings
+                .map(Integer::parseInt)     // Convert to Integer
+                .collect(Collectors.toList());
+        System.out.println(categoryList.toString());
+        List<Product> productsPage = productRepo.testFilter(categoryList);
+//        List<ProductDto> map = productsPage.stream().map(this::mapToProductDto).collect(Collectors.toList());
+        for(int i = 0; i < productsPage.size(); i++) {
+            System.out.println("->>>: "+productsPage.get(i).getName());
+        }
+        ApiDataResponse apiResponse = new ApiDataResponse("Get all products success !!!", true, 200, productsPage);
+        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
@@ -73,15 +119,17 @@ public class ProductController {
                                                  @RequestPart("status") String status,
                                                  @RequestPart("quantity") String quantity,
                                                  @RequestPart("category") String categoryId,
+                                                 @RequestPart("price") String price,
                                                  @RequestPart(value = "file", required = false) MultipartFile file) {
         Product product = productRepo.findById(id).orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
-        if(product.getCategory().getId() != Integer.parseInt(categoryId)) {
+        if (product.getCategory().getId() != Integer.parseInt(categoryId)) {
             Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
             product.setCategory(category);
         }
         product.setName(name);
         product.setStatus(Integer.parseInt(status));
         product.setQuantity(Integer.parseInt(quantity));
+        product.setPrice(Integer.parseInt(price));
         product.setUpdatedAt(LocalDateTime.now());
         if (file != null) {
             cloudinaryService.deleteImageUpload(product.getPublicId());
@@ -108,10 +156,11 @@ public class ProductController {
 
     @PostMapping(value = "/")
     public ResponseEntity<Product> createProduct(@RequestPart("name") String name,
-                                                @RequestPart("status") String status,
-                                                @RequestPart("quantity") String quantity,
-                                                @RequestPart("category") String categoryId,
-                                                @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+                                                 @RequestPart("status") String status,
+                                                 @RequestPart("quantity") String quantity,
+                                                 @RequestPart("category") String categoryId,
+                                                 @RequestPart("price") String price,
+                                                 @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
         Product product = new Product();
         // String fileName = saveFile(file);
         Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
@@ -123,6 +172,7 @@ public class ProductController {
         product.setId(sequenceGeneratorService.generateSequence(Product.SEQUENCE_NAME));
         product.setName(name);
         product.setQuantity(Integer.parseInt(quantity));
+        product.setPrice(Integer.parseInt(price));
         product.setVote(0);
         product.setStatus(Integer.parseInt(status));
         product.setCreateAt(LocalDateTime.now());
@@ -131,7 +181,6 @@ public class ProductController {
         Product pro = productRepo.save(product);
         return new ResponseEntity<>(pro, HttpStatus.CREATED);
     }
-
 
 
     public String saveFile(MultipartFile file) throws IOException {
@@ -168,12 +217,13 @@ public class ProductController {
         productDto.setId(product.getId());
         productDto.setName(product.getName());
         productDto.setStatus(product.getStatus());
-        productDto.setImage( product.getImage());
+        productDto.setImage(product.getImage());
         productDto.setPublicId(product.getPublicId());
         productDto.setCreateAt(product.getCreateAt());
         productDto.setVote(product.getVote());
         productDto.setQuantity(product.getQuantity());
         productDto.setCategory(product.getCategory().getId());
+        productDto.setPrice(product.getPrice());
         return productDto;
     }
 
