@@ -70,23 +70,31 @@ public class ProductController {
     @GetMapping("/home")
     public ResponseEntity<?> getAllProductsInHome(@RequestParam(value = "key", required = false, defaultValue = "") String key,
                                             @RequestParam(value = "sort", required = false, defaultValue = "createAt") String sort,
-                                            @RequestParam(value = "category", required = false, defaultValue = "1,2,3") String category,
+                                            @RequestParam(value = "category", required = false, defaultValue = "all") String category,
                                             @RequestParam(value = "price", required = false, defaultValue = "20,500") String price,
                                             @RequestParam(value = "rate", required = false, defaultValue = "3") String rate,
                                             @RequestParam(value = "pageSize", defaultValue = "5") int pageSize,
                                             @RequestParam(value = "pageNumber", defaultValue = "1") int pageNumber) {
-        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, Sort.by(sort).ascending());
+        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, sort.equals("priceDesc") ? Sort.by("price").descending() : Sort.by(sort).ascending());
+        List<Integer> list = new ArrayList<>();
         int minPrice = Integer.parseInt(price.split(",")[0]);
         int maxPrice = Integer.parseInt(price.split(",")[1]);
         logger.info("key: " + key + " sort: " + sort + " category: " + category + " minPrice: " + minPrice + " maxPrice: " + maxPrice + " rate: " + rate);
-        List<Integer> categoryList = Arrays.stream(category.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Integer::parseInt)
-                .collect(Collectors.toList());
-        logger.info("categoryList: " + categoryList.toString());
+        List<String> categoryList = new ArrayList<>();
+        if(category.equals("all")){
+            categoryList = categoryRepo.findAll().stream().map(Category::getName).collect(Collectors.toList());
+        }else{
+            categoryList = Arrays.stream(category.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        }
+        for(int i = 0; i < categoryList.size(); i++) {
+            Category cate = categoryRepo.findByName(categoryList.get(i));
+            list.add(cate.getId());
+        }
         Page<Product> productsPage = productRepo.findByFilters(key
-                , categoryList
+                , list
                 , minPrice
                 , maxPrice
                 , Integer.parseInt(rate)
@@ -112,6 +120,14 @@ public class ProductController {
         ApiDataResponse apiResponse = new ApiDataResponse("Get all products success !!!", true, 200, productsPage);
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
+    @GetMapping("/{id}")
+    public ResponseEntity<?> findById(@PathVariable Integer id) {
+        Product product = productRepo.findById(id).orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
+        ProductDto productDto = mapToProductDto(product);
+        ApiDataResponse apiResponse = new ApiDataResponse("Get product success !!!", true, 200, productDto);
+        return ResponseEntity.ok(apiResponse);
+    }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<Product> updateProduct(@PathVariable Integer id,
@@ -120,6 +136,7 @@ public class ProductController {
                                                  @RequestPart("quantity") String quantity,
                                                  @RequestPart("category") String categoryId,
                                                  @RequestPart("price") String price,
+                                                 @RequestPart(value = "description", required = false) String description,
                                                  @RequestPart(value = "file", required = false) MultipartFile file) {
         Product product = productRepo.findById(id).orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
         if (product.getCategory().getId() != Integer.parseInt(categoryId)) {
@@ -131,6 +148,7 @@ public class ProductController {
         product.setQuantity(Integer.parseInt(quantity));
         product.setPrice(Integer.parseInt(price));
         product.setUpdatedAt(LocalDateTime.now());
+        product.setDescription(description);
         if (file != null) {
             cloudinaryService.deleteImageUpload(product.getPublicId());
 
@@ -160,6 +178,7 @@ public class ProductController {
                                                  @RequestPart("quantity") String quantity,
                                                  @RequestPart("category") String categoryId,
                                                  @RequestPart("price") String price,
+                                                 @RequestPart("description") String description,
                                                  @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
         Product product = new Product();
         // String fileName = saveFile(file);
@@ -173,6 +192,7 @@ public class ProductController {
         product.setName(name);
         product.setQuantity(Integer.parseInt(quantity));
         product.setPrice(Integer.parseInt(price));
+        product.setDescription(description);
         product.setVote(0);
         product.setStatus(Integer.parseInt(status));
         product.setCreateAt(LocalDateTime.now());
@@ -221,6 +241,7 @@ public class ProductController {
         productDto.setPublicId(product.getPublicId());
         productDto.setCreateAt(product.getCreateAt());
         productDto.setVote(product.getVote());
+        productDto.setDescription(product.getDescription());
         productDto.setQuantity(product.getQuantity());
         productDto.setCategory(product.getCategory().getId());
         productDto.setPrice(product.getPrice());

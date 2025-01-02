@@ -27,6 +27,7 @@ public class Product implements Serializable {
     private int status;
     private String image;
     private int quantity;
+    private String description;
     private int vote;
     private Integer price;
     private LocalDateTime createAt;

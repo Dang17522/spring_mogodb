@@ -13,6 +13,7 @@ public class ProductDto {
     private String image;
     private int quantity;
     private Integer price;
+    private String description;
     private int vote;
     private LocalDateTime createAt;
     private String publicId;
