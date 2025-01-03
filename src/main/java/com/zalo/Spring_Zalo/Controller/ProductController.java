@@ -7,7 +7,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.zalo.Spring_Zalo.Entities.Category;
+import com.zalo.Spring_Zalo.Entities.ProductMultiImage;
 import com.zalo.Spring_Zalo.Repo.CategoryMongoRepo;
+import com.zalo.Spring_Zalo.Repo.ProductMultImageMongoRepo;
 import com.zalo.Spring_Zalo.Response.ApiDataResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,9 @@ public class ProductController {
 
     @Autowired
     private CategoryMongoRepo categoryRepo;
+
+    @Autowired
+    private ProductMultImageMongoRepo productMultImageRepo;
 
     Logger logger = LoggerFactory.getLogger(ProductController.class);
 
@@ -130,14 +135,15 @@ public class ProductController {
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Integer id,
+    public ResponseEntity<?> updateProduct(@PathVariable Integer id,
                                                  @RequestPart("name") String name,
                                                  @RequestPart("status") String status,
                                                  @RequestPart("quantity") String quantity,
                                                  @RequestPart("category") String categoryId,
                                                  @RequestPart("price") String price,
                                                  @RequestPart(value = "description", required = false) String description,
-                                                 @RequestPart(value = "file", required = false) MultipartFile file) {
+                                                 @RequestPart("vote") String vote,
+                                                 @RequestPart(value = "file", required = false) MultipartFile[] file) {
         Product product = productRepo.findById(id).orElseThrow(() -> new ApiNotFoundException("Not found product withh id: " + id));
         if (product.getCategory().getId() != Integer.parseInt(categoryId)) {
             Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
@@ -149,17 +155,11 @@ public class ProductController {
         product.setPrice(Integer.parseInt(price));
         product.setUpdatedAt(LocalDateTime.now());
         product.setDescription(description);
-        if (file != null) {
-            cloudinaryService.deleteImageUpload(product.getPublicId());
-
-            Map data = cloudinaryService.upload(file);
-            product.setImage(String.valueOf(data.get("secure_url")));
-            product.setPublicId(String.valueOf(data.get("public_id")));
-
-        }
+        product.setVote(Integer.parseInt(vote));
 
         Product savedProduct = productRepo.save(product);
-        return ResponseEntity.ok(savedProduct);
+        ApiDataResponse apiResponse = new ApiDataResponse("Update product success !!!", true, 200, savedProduct);
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PutMapping("/status/{id}")
@@ -173,21 +173,18 @@ public class ProductController {
     }
 
     @PostMapping(value = "/")
-    public ResponseEntity<Product> createProduct(@RequestPart("name") String name,
+    public ResponseEntity<?> createProduct(@RequestPart("name") String name,
                                                  @RequestPart("status") String status,
                                                  @RequestPart("quantity") String quantity,
                                                  @RequestPart("category") String categoryId,
                                                  @RequestPart("price") String price,
                                                  @RequestPart("description") String description,
-                                                 @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+                                                 @RequestPart(value = "file", required = false) MultipartFile[] file) throws IOException {
         Product product = new Product();
+        List<ProductMultiImage> productMultiImages = new ArrayList<>();
         // String fileName = saveFile(file);
         Category category = categoryRepo.findById(Integer.parseInt(categoryId)).orElseThrow(() -> new ApiNotFoundException("Not found category withh id: " + categoryId));
-        if (file != null) {
-            Map data = cloudinaryService.upload(file);
-            product.setImage(String.valueOf(data.get("secure_url")));
-            product.setPublicId(String.valueOf(data.get("public_id")));
-        }
+
         product.setId(sequenceGeneratorService.generateSequence(Product.SEQUENCE_NAME));
         product.setName(name);
         product.setQuantity(Integer.parseInt(quantity));
@@ -198,8 +195,26 @@ public class ProductController {
         product.setCreateAt(LocalDateTime.now());
         product.setCategory(category);
 
+
+        if (file != null) {
+            for(int i = 0; i < file.length; i++) {
+                logger.info("->>: "+file[i].getOriginalFilename());
+                Map data = cloudinaryService.upload(file[i]);
+                ProductMultiImage productMultiImage = new ProductMultiImage();
+                productMultiImage.setId(sequenceGeneratorService.generateSequence(ProductMultiImage.SEQUENCE_NAME));
+                productMultiImage.setImage(String.valueOf(data.get("secure_url")));
+                productMultiImage.setPublicId(String.valueOf(data.get("public_id")));
+                productMultiImage.setProduct(product);
+                productMultImageRepo.save(productMultiImage);
+                productMultiImages.add(productMultiImage);
+            }
+            product.setProductMultiImage(productMultiImages);
+
+        }
         Product pro = productRepo.save(product);
-        return new ResponseEntity<>(pro, HttpStatus.CREATED);
+        ApiDataResponse apiResponse = new ApiDataResponse("Create product success !!!", true, 200, pro);
+
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }
 
 
@@ -237,14 +252,13 @@ public class ProductController {
         productDto.setId(product.getId());
         productDto.setName(product.getName());
         productDto.setStatus(product.getStatus());
-        productDto.setImage(product.getImage());
-        productDto.setPublicId(product.getPublicId());
         productDto.setCreateAt(product.getCreateAt());
         productDto.setVote(product.getVote());
         productDto.setDescription(product.getDescription());
         productDto.setQuantity(product.getQuantity());
         productDto.setCategory(product.getCategory().getId());
         productDto.setPrice(product.getPrice());
+        productDto.setProductMultiImage(product.getProductMultiImage());
         return productDto;
     }
 

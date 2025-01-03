@@ -2,7 +2,9 @@ package com.zalo.Spring_Zalo.Entities;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -25,7 +27,6 @@ public class Product implements Serializable {
     private Integer id;
     private String name;
     private int status;
-    private String image;
     private int quantity;
     private String description;
     private int vote;
@@ -33,9 +34,13 @@ public class Product implements Serializable {
     private LocalDateTime createAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
-    private String publicId;
+
 
     @DBRef
     private Category category;
+
+    @DBRef
+    @JsonIgnore
+    private List<ProductMultiImage> productMultiImage;
 
 }
